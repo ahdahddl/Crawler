@@ -1,26 +1,28 @@
-package file;
+package filesystem;
 
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static java.nio.file.StandardWatchEventKinds.*;
 
-public class TargetWatcher {
+public class TargetDirectoryWatcher implements Runnable{
 
     private final WatchService watcher;
     private final Map<WatchKey, Path> keys;
 
+    protected ConcurrentLinkedQueue<String> queue;
+
     /**
      * Creates a WatchService and registers the given directory
      */
-    TargetWatcher(Path dir) throws IOException {
+    public TargetDirectoryWatcher(ConcurrentLinkedQueue<String> queue) throws IOException {
         this.watcher = FileSystems.getDefault().newWatchService();
         this.keys = new HashMap<WatchKey, Path>();
-
-        walkAndRegisterDirectories(dir);
+        this.queue = queue;
     }
 
     /**
@@ -35,7 +37,7 @@ public class TargetWatcher {
     /**
      * Register the given directory, and all its sub-directories, with the WatchService.
      */
-    private void walkAndRegisterDirectories(final Path start) throws IOException {
+    public void walkAndRegisterDirectories(final Path start) throws IOException {
         // register directory and sub-directories
         Files.walkFileTree(start, new SimpleFileVisitor<Path>() {
             @Override
@@ -49,7 +51,8 @@ public class TargetWatcher {
     /**
      * Process all events for keys queued to the watcher
      */
-    void processEvents() {
+    public void run() {
+        System.out.println("Producer Started");
         for (;;) {
 
             // wait for key to be signalled
@@ -75,15 +78,17 @@ public class TargetWatcher {
                 Path name = ((WatchEvent<Path>)event).context();
                 Path child = dir.resolve(name);
 
-                // print out event
-                System.out.format("%s: %s\n", event.kind().name(), child);
-
                 // if directory is created, and watching recursively, then register it and its sub-directories
                 if (kind == ENTRY_CREATE) {
                     try {
                         if (Files.isDirectory(child)) {
                             walkAndRegisterDirectories(child);
+                        }else{
+                            this.queue.add(child.toString());
+                            // print out event
+                            System.out.format("%s: %s\n", event.kind().name(), child);
                         }
+
                     } catch (IOException x) {
                         // do something useful
                     }
@@ -103,8 +108,8 @@ public class TargetWatcher {
         }
     }
 
-    public static void main(String[] args) throws IOException {
-        Path dir = Paths.get("/home/mongmongi/문서/Python");
-        new TargetWatcher(dir).processEvents();
-    }
+//    public static void main(String[] args) throws IOException {
+//        Path dir = Paths.get("/home/mongmongi/문서/Python");
+//        new TargetDirectoryWatcher(dir).processEvents();
+//    }
 }

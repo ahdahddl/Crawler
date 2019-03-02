@@ -1,17 +1,13 @@
-import buisness.Consumer;
-import buisness.Producer;
-
-import java.util.concurrent.ConcurrentLinkedQueue;
+import worker.FileWorker;
 
 public class Main {
 
 
     public static void main(String [] args)
     {
-        ConcurrentLinkedQueue<String> queue = new ConcurrentLinkedQueue<String>();
-        Thread producer = new Thread(new Producer(queue));
-        Thread consumer = new Thread(new Consumer(queue));
-        producer.start();
-        consumer.start();
+        FileWorker worker = new FileWorker("test", "/home/mongmongi/문서");
+        worker.doWork();
     }
+
+
 }
